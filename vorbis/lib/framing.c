@@ -13,7 +13,7 @@
 
  function: code raw [Vorbis] packets into framed OggSquish stream and
            decode Ogg streams back into raw packets
- last mod: $Id: framing.c,v 1.14 2000/01/12 11:34:40 xiphmont Exp $
+ last mod: $Id: framing.c,v 1.14.4.2 2000/04/21 16:35:39 xiphmont Exp $
 
  note: The CRC code is directly derived from public domain code by
  Ross Williams (ross@guest.adelaide.edu.au).  See docs/framing.html
@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "vorbis/codec.h"
+#include "misc.h"
 
 /* A complete description of Ogg framing exists in docs/framing.html */
 
@@ -302,6 +303,11 @@ int ogg_stream_pageout(ogg_stream_state *os, ogg_page *og){
 
     /* 32 bits of page counter (we have both counter and page header
        because this val can roll over) */
+    if(os->pageno==-1)os->pageno=0; /* because someone called
+                                       stream_reset; this would be a
+                                       strange thing to do in an
+                                       encode stream, but it has
+                                       plausible uses */
     {
       long pageno=os->pageno++;
       for(i=18;i<22;i++){
@@ -610,8 +616,10 @@ int ogg_stream_pagein(ogg_stream_state *os, ogg_page *og){
     os->lacing_fill=os->lacing_packet;
 
     /* make a note of dropped data in segment table */
-    os->lacing_vals[os->lacing_fill++]=0x400;
-    os->lacing_packet++;
+    if(os->pageno!=-1){
+      os->lacing_vals[os->lacing_fill++]=0x400;
+      os->lacing_packet++;
+    }
 
     /* are we a 'continued packet' page?  If so, we'll need to skip
        some segments */
@@ -683,7 +691,7 @@ int ogg_sync_reset(ogg_sync_state *oy){
   return(0);
 }
 
-int ogg_stream_reset(ogg_stream_state *os,long expected_pageno){
+int ogg_stream_reset(ogg_stream_state *os){
   os->body_fill=0;
   os->body_returned=0;
 
@@ -695,7 +703,7 @@ int ogg_stream_reset(ogg_stream_state *os,long expected_pageno){
 
   os->e_o_s=0;
   os->b_o_s=0;
-  os->pageno=expected_pageno;
+  os->pageno=-1;
   os->packetno=0;
   os->pcmpos=0;
 
@@ -872,8 +880,8 @@ void test_pack(int *pl, int **headers){
   int eosflag=0;
   int bosflag=0;
 
-  ogg_stream_reset(&os_en,0);
-  ogg_stream_reset(&os_de,0);
+  ogg_stream_reset(&os_en);
+  ogg_stream_reset(&os_de);
   ogg_sync_reset(&oy);
 
   for(packets=0;;packets++)if(pl[packets]==-1)break;
@@ -1300,7 +1308,7 @@ int main(void){
     int inptr=0,i,j;
     ogg_page og[5];
     
-    ogg_stream_reset(&os_en,0);
+    ogg_stream_reset(&os_en);
 
     for(i=0;pl[i]!=-1;i++){
       ogg_packet op;
@@ -1334,7 +1342,7 @@ int main(void){
       fprintf(stderr,"Testing loss of pages... ");
 
       ogg_sync_reset(&oy);
-      ogg_stream_reset(&os_de,0);
+      ogg_stream_reset(&os_de);
       for(i=0;i<5;i++){
 	memcpy(ogg_sync_buffer(&oy,og[i].header_len),og[i].header,
 	       og[i].header_len);
@@ -1379,7 +1387,7 @@ int main(void){
       fprintf(stderr,"Testing loss of pages (rollback required)... ");
 
       ogg_sync_reset(&oy);
-      ogg_stream_reset(&os_de,0);
+      ogg_stream_reset(&os_de);
       for(i=0;i<5;i++){
 	memcpy(ogg_sync_buffer(&oy,og[i].header_len),og[i].header,
 	       og[i].header_len);

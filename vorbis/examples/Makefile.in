@@ -1,6 +1,6 @@
 # vorbis makefile configured for use with gcc on any platform
 
-# $Id: Makefile.in,v 1.5 2000/02/12 08:33:00 xiphmont Exp $
+# $Id: Makefile.in,v 1.5.4.3 2000/05/08 08:25:39 xiphmont Exp $
 
 ###############################################################################
 #                                                                             #
@@ -30,8 +30,10 @@ LIBS=@LIBS@ -lm
 HFILES =	../include/vorbis/codec.h ../include/vorbis/vorbisfile.h \
 		../include/vorbis/internal.h ../include/vorbis/backends.h \
 		../include/vorbis/codebook.h
-OFILES =	encoder_example.o decoder_example.o chaining_example.o
-BINFILES =      encoder_example decoder_example chaining_example
+OFILES =	encoder_example.o decoder_example.o chaining_example.o \
+		seeking_test.o
+BINFILES =      encoder_example decoder_example chaining_example \
+		seeking_test
 
 all:
 	$(MAKE) target CFLAGS="$(OPT)"
@@ -48,16 +50,21 @@ encoder_example.o:	../include/vorbis/modes.h
 
 encoder_example:	$(OFILES) ../lib/libvorbis.a
 	$(CC) $(CFLAGS) $(LDFLAGS) encoder_example.o ../lib/libvorbis.a -o \
-			encoder_example -lm
+			encoder_example $(LIBS)
 
 decoder_example:	$(OFILES) ../lib/libvorbis.a
 	$(CC) $(CFLAGS) $(LDFLAGS) decoder_example.o ../lib/libvorbis.a -o \
-			decoder_example -lm
+			decoder_example $(LIBS)
 
 chaining_example:	$(OFILES) ../lib/libvorbis.a ../lib/vorbisfile.a
 	$(CC) $(CFLAGS) $(LDFLAGS) chaining_example.o \
 			../lib/vorbisfile.a ../lib/libvorbis.a \
-			-o chaining_example -lm
+			-o chaining_example $(LIBS)
+
+seeking_test:	$(OFILES) ../lib/libvorbis.a ../lib/vorbisfile.a
+	$(CC) $(CFLAGS) $(LDFLAGS) seeking_test.o \
+			../lib/vorbisfile.a ../lib/libvorbis.a \
+			-o seeking_test $(LIBS)
 
 $(OFILES): 	$(HFILES)
 

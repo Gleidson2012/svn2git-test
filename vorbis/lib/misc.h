@@ -12,7 +12,7 @@
  ********************************************************************
 
  function: miscellaneous prototypes
- last mod: $Id: misc.h,v 1.2 2000/02/23 09:24:30 xiphmont Exp $
+ last mod: $Id: misc.h,v 1.2.4.2 2000/04/13 04:53:04 xiphmont Exp $
 
  ********************************************************************/
 
@@ -21,6 +21,6 @@
 
 extern void *_vorbis_block_alloc(vorbis_block *vb,long bytes);
 extern void _vorbis_block_ripcord(vorbis_block *vb);
-extern void _analysis_output(char *base,int i,double *v,int n);
+extern void _analysis_output(char *base,int i,double *v,int n,int bark,int dB);
 
 #endif
