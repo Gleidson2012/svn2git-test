@@ -439,7 +439,7 @@ int nb_encode(void *state, float *in, SpeexBits *bits)
    if (st->submodes[st->submodeID] == NULL)
    {
       for (i=0;i<st->frameSize;i++)
-         st->exc[i]=st->exc2[i]=st->sw[i]=0;
+         st->exc[i]=st->exc2[i]=st->sw[i]=VERY_SMALL;
 
       for (i=0;i<st->lpcSize;i++)
          st->mem_sw[i]=0;
@@ -485,7 +485,7 @@ int nb_encode(void *state, float *in, SpeexBits *bits)
       int quant;
       quant = (int)floor(.5+15*ol_pitch_coef);
       if (quant>15)
-         quant=0;
+         quant=15;
       if (quant<0)
          quant=0;
       speex_bits_pack(bits, quant, 4);
@@ -495,7 +495,7 @@ int nb_encode(void *state, float *in, SpeexBits *bits)
    
    /*Quantize and transmit open-loop excitation gain*/
    {
-      int qe = (int)(floor(3.5*log(ol_gain)));
+      int qe = (int)(floor(.5+3.5*log(ol_gain)));
       if (qe<0)
          qe=0;
       if (qe>31)
