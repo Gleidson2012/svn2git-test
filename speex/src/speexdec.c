@@ -56,6 +56,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+
+#elif defined HAVE_SYS_AUDIOIO_H
+#include <sys/types.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/audioio.h>
+#ifndef AUDIO_ENCODING_SLINEAR
+#define AUDIO_ENCODING_SLINEAR AUDIO_ENCODING_LINEAR /* Solaris */
+#endif
+
 #endif
 
 #include <string.h>
@@ -136,7 +146,7 @@ FILE *out_file_open(char *outFile, int rate, int *channels)
          exit(1);         
       }
 
-      format=AFMT_S16_LE;
+      format=AFMT_S16_NE;
       if (ioctl(audio_fd, SNDCTL_DSP_SETFMT, &format)==-1)
       {
          perror("SNDCTL_DSP_SETFMT");
@@ -164,6 +174,31 @@ FILE *out_file_open(char *outFile, int rate, int *channels)
       {
          perror("SNDCTL_DSP_SPEED");
          close(audio_fd);
+         exit(1);
+      }
+      fout = fdopen(audio_fd, "w");
+#elif defined HAVE_SYS_AUDIOIO_H
+      audio_info_t info;
+      int audio_fd;
+      
+      audio_fd = open("/dev/audio", O_WRONLY);
+      if (audio_fd<0)
+      {
+         perror("Cannot open /dev/audio");
+         exit(1);
+      }
+
+      AUDIO_INITINFO(&info);
+#ifdef AUMODE_PLAY    /* NetBSD/OpenBSD */
+      info.mode = AUMODE_PLAY;
+#endif
+      info.play.encoding = AUDIO_ENCODING_SLINEAR;
+      info.play.precision = 16;
+      info.play.channels = *channels;
+      
+      if (ioctl(audio_fd, AUDIO_SETINFO, &info) < 0)
+      {
+         perror ("AUDIO_SETINFO");
          exit(1);
       }
       fout = fdopen(audio_fd, "w");
@@ -401,6 +436,7 @@ int main(int argc, char **argv)
    int channels=-1;
    int rate=0;
    int extra_headers;
+   int wav_format=0;
 
    enh_enabled = 1;
 
@@ -492,6 +528,9 @@ int main(int argc, char **argv)
       outFile=argv[optind+1];
    else
       outFile = "";
+   wav_format = strlen(outFile)>=4 && (
+                                       strcmp(outFile+strlen(outFile)-4,".wav")==0
+                                       || strcmp(inFile+strlen(inFile)-4,".WAV")==0);
    /*Open input file*/
    if (strcmp(inFile, "-")==0)
    {
@@ -571,7 +610,7 @@ int main(int argc, char **argv)
 
                /*Copy Ogg packet to Speex bitstream*/
                speex_bits_read_from(&bits, (char*)op.packet, op.bytes);
-               for (j=0;j<nframes;j++)
+               for (j=0;j!=nframes;j++)
                {
                   int ret;
                   /*Decode frame*/
@@ -611,8 +650,14 @@ int main(int argc, char **argv)
                         output[i]=-32000.0;
                   }
                   /*Convert to short and save to output file*/
-                  for (i=0;i<frame_size*channels;i++)
-                     out[i]=(short)le_short((short)floor(.5+output[i]));
+		  if (strlen(outFile)!=0)
+                  {
+                     for (i=0;i<frame_size*channels;i++)
+                        out[i]=(short)le_short((short)floor(.5+output[i]));
+		  } else {
+                     for (i=0;i<frame_size*channels;i++)
+                        out[i]=(short)floor(.5+output[i]);
+		  }
 #if defined WIN32 || defined _WIN32
                   if (strlen(outFile)==0)
                       WIN_Play_Samples (out, sizeof(short) * frame_size*channels);
@@ -631,7 +676,7 @@ int main(int argc, char **argv)
 
    }
 
-   if (strcmp(outFile+strlen(outFile)-4,".wav")==0 || strcmp(inFile+strlen(inFile)-4,".WAV")==0)
+   if (wav_format)
    {
       if (fseek(fout,4,SEEK_SET)==0)
       {
@@ -658,11 +703,12 @@ int main(int argc, char **argv)
       fprintf (stderr, "This doesn't look like a Speex file\n");
    }
    speex_bits_destroy(&bits);
+   if (stream_init)
+      ogg_stream_clear(&os);
    ogg_sync_clear(&oy);
-   ogg_stream_clear(&os);
 
 #if defined WIN32 || defined _WIN32
-   if (fout && strlen(outFile)==0)
+   if (strlen(outFile)==0)
       WIN_Audio_close ();
 #endif
 

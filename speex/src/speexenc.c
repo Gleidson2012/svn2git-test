@@ -176,9 +176,9 @@ void usage()
    printf (" --comp n           Set encoding complexity (0-10), default 3\n"); 
    printf (" --nframes n        Number of frames per Ogg packet (1-10), default 1\n"); 
    printf (" --comment          Add the given string as an extra comment. This may be\n");
-   printf ("                     used multiple times.\n");
-   printf (" --author           Author of this track.\n");
-   printf (" --title            Title for this track.\n");
+   printf ("                     used multiple times\n");
+   printf (" --author           Author of this track\n");
+   printf (" --title            Title for this track\n");
    printf (" -h, --help         This help\n"); 
    printf (" -v, --version      Version information\n"); 
    printf (" -V                 Verbose mode (show bit-rate)\n"); 
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
    ogg_stream_state os;
    ogg_page 		 og;
    ogg_packet 		 op;
-   int bytes_written, ret, result;
+   int bytes_written=0, ret, result;
    int id=-1;
    SpeexHeader header;
    int nframes=1;
@@ -611,10 +611,10 @@ int main(int argc, char **argv)
       speex_encoder_ctl(st, SPEEX_SET_DTX, &tmp);
    if (dtx_enabled && !(vbr_enabled || abr_enabled || vad_enabled))
    {
-      fprintf (stderr, "Warning: --dtx is useless without --vad\n");
-   } else if ((vbr_enabled || abr_enabled) && (vad_enabled || dtx_enabled))
+      fprintf (stderr, "Warning: --dtx is useless without --vad, --vbr or --abr\n");
+   } else if ((vbr_enabled || abr_enabled) && (vad_enabled))
    {
-      fprintf (stderr, "Warning: --vad and --dtx are already implied by --vbr or --abr\n");
+      fprintf (stderr, "Warning: --vad is already implied by --vbr or --abr\n");
    }
 
    if (abr_enabled)
@@ -672,6 +672,7 @@ int main(int argc, char **argv)
 
       if ((id+1)%nframes!=0)
          continue;
+      speex_bits_insert_terminator(&bits);
       nbBytes = speex_bits_write(&bits, cbits, MAX_FRAME_BYTES);
       speex_bits_reset(&bits);
       op.packet = (unsigned char *)cbits;

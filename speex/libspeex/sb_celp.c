@@ -351,6 +351,8 @@ int sb_encode(void *state, float *in, SpeexBits *bits)
          int modeid;
          modeid = mode->nb_modes-1;
          st->relative_quality+=1.0*(ratio+2);
+	 if (st->relative_quality<-1)
+            st->relative_quality=-1;
          while (modeid)
          {
             int v1;
@@ -361,7 +363,7 @@ int sb_encode(void *state, float *in, SpeexBits *bits)
             else
                thresh = (st->vbr_quality-v1)   * mode->vbr_thresh[modeid][v1+1] + 
                         (1+v1-st->vbr_quality) * mode->vbr_thresh[modeid][v1];
-            if (st->relative_quality > thresh)
+            if (st->relative_quality >= thresh)
                break;
             modeid--;
          }
@@ -461,14 +463,14 @@ int sb_encode(void *state, float *in, SpeexBits *bits)
       for (i=0;i<st->lpcSize;i++)
          st->interp_qlsp[i] = (1-tmp)*st->old_qlsp[i] + tmp*st->qlsp[i];
       
+      lsp_enforce_margin(st->interp_lsp, st->lpcSize, .05);
+      lsp_enforce_margin(st->interp_qlsp, st->lpcSize, .05);
+
       /* Compute interpolated LPCs (quantized and unquantized) */
       for (i=0;i<st->lpcSize;i++)
          st->interp_lsp[i] = cos(st->interp_lsp[i]);
       for (i=0;i<st->lpcSize;i++)
          st->interp_qlsp[i] = cos(st->interp_qlsp[i]);
-
-      lsp_enforce_margin(st->interp_lsp, st->lpcSize, .002);
-      lsp_enforce_margin(st->interp_qlsp, st->lpcSize, .002);
 
       lsp_to_lpc(st->interp_lsp, st->interp_lpc, st->lpcSize,stack);
       lsp_to_lpc(st->interp_qlsp, st->interp_qlpc, st->lpcSize, stack);
@@ -917,11 +919,11 @@ int sb_decode(void *state, SpeexBits *bits, float *out)
       for (i=0;i<st->lpcSize;i++)
          st->interp_qlsp[i] = (1-tmp)*st->old_qlsp[i] + tmp*st->qlsp[i];
 
+      lsp_enforce_margin(st->interp_qlsp, st->lpcSize, .05);
+
       /* LSPs to x-domain */
       for (i=0;i<st->lpcSize;i++)
          st->interp_qlsp[i] = cos(st->interp_qlsp[i]);
-
-      lsp_enforce_margin(st->interp_qlsp, st->lpcSize, .002);
 
       /* LSP to LPC */
       lsp_to_lpc(st->interp_qlsp, st->interp_qlpc, st->lpcSize, stack);
@@ -1250,7 +1252,7 @@ int sb_decoder_ctl(void *state, int request, void *ptr)
    switch(request)
    {
    case SPEEX_GET_LOW_MODE:
-      speex_encoder_ctl(st->st_low, SPEEX_GET_LOW_MODE, ptr);
+      speex_decoder_ctl(st->st_low, SPEEX_GET_LOW_MODE, ptr);
       break;
    case SPEEX_GET_FRAME_SIZE:
       (*(int*)ptr) = st->full_frame_size;
