@@ -7,7 +7,6 @@
  ******************************************************************/
 
 #include <stdio.h>
-#include <unistd.h>
 #include <ctype.h>
 #include <sys/stat.h>
 #include "cdda_interface.h"
@@ -168,7 +167,7 @@ cdrom_drive *cdda_identify_cooked(const char *dev, int messagedest,
     /* Yay, ATAPI... */
     /* Ping for CDROM-ness */
     
-    fd=open(device,O_RDONLY|O_NONBLOCK);
+    fd=open(device,O_RDONLY);
     if(fd==-1){
       idperror(messagedest,messages,"\t\tUnable to open %s",device);
       free(device);
@@ -238,7 +237,7 @@ cdrom_drive *cdda_identify_cooked(const char *dev, int messagedest,
     return(NULL);
   }
 
-  if(fd==-1)fd=open(device,O_RDONLY|O_NONBLOCK);
+  if(fd==-1)fd=open(device,O_RDONLY);
   if(fd==-1){
     idperror(messagedest,messages,"\t\tUnable to open %s",device);
     free(device);
@@ -473,7 +472,7 @@ cdrom_drive *cdda_identify_scsi(const char *generic_device,
     goto cdda_identify_scsi_fail;
   }
 
-  if(ioctl_device)i_fd=open(ioctl_device,O_RDONLY|O_NONBLOCK);
+  if(ioctl_device)i_fd=open(ioctl_device,O_RDONLY);
   g_fd=open(generic_device,O_RDWR|O_EXCL);
   
   if(ioctl_device && i_fd==-1)
@@ -553,21 +552,12 @@ cdrom_drive *cdda_identify_scsi(const char *generic_device,
 
   p = scsi_inquiry(d);
 
-  /* It would seem some TOSHIBA CDROM gets things wrong */
- 
-  if (!strncmp (p + 8, "TOSHIBA", 7) &&
-      !strncmp (p + 16, "CD-ROM", 6) &&
-      p[0] == TYPE_DISK) {
-    p[0] = TYPE_ROM;
-    p[1] |= 0x80;     /* removable */
-  }
-
   if (!p || (*p != TYPE_ROM && *p != TYPE_WORM)) {
     idmessage(messagedest,messages,
 	      "\t\tDrive is neither a CDROM nor a WORM device\n",NULL);
     free(d->sg);
     free(d);
-    goto cdda_identify_scsi_fail;
+    return(NULL);
   }
 
   d->drive_model=calloc(36,1);

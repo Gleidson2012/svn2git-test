@@ -251,8 +251,7 @@ VERSION"\n"
 "                                    verification to n sectors\n"
 "  -d --force-cdrom-device   <dev> : use specified device; disallow \n"
 "                                    autosense\n"
-"  -g --force-generic-device <dev> : use specified generic scsi device\n"
-"  -S --force-read-speed <n>       : read from device at specified speed\n"
+"  -g --force-generic-device <dev> : use specified generic scsi device\n\n"
 
 "  -z --never-skip                 : never accept any less than perfect\n"
 "                                    data reconstruction (don't allow 'V's)\n"
@@ -550,7 +549,7 @@ static void callback(long inpos, int function){
     memset(dispcache,' ',graph);
 }
 
-const char *optstring = "escCn:o:d:g:S:prRwafvqVQhZzYXWBi:";
+const char *optstring = "escCn:o:d:g:prRwafvqVQhZzYXWBi:";
 
 struct option options [] = {
 	{"stderr-progress",no_argument,NULL,'e'},
@@ -561,7 +560,6 @@ struct option options [] = {
 	{"force-search-overlap",required_argument,NULL,'o'},
 	{"force-cdrom-device",required_argument,NULL,'d'},
 	{"force-generic-device",required_argument,NULL,'g'},
-	{"force-read-speed",required_argument,NULL,'S'},
 	{"output-raw",no_argument,NULL,'p'},
 	{"output-raw-little-endian",no_argument,NULL,'r'},
 	{"output-raw-big-endian",no_argument,NULL,'R'},
@@ -614,7 +612,6 @@ int main(int argc,char *argv[]){
   int force_cdrom_overlap=-1;
   char *force_cdrom_device=NULL;
   char *force_generic_device=NULL;
-  int force_cdrom_speed=-1;
   char *span=NULL;
   int output_type=1; /* 0=raw, 1=wav, 2=aifc */
   int output_endian=0; /* -1=host, 0=little, 1=big */
@@ -656,9 +653,6 @@ int main(int argc,char *argv[]){
     case 'g':
       if(force_generic_device)free(force_generic_device);
       force_generic_device=copystring(optarg);
-      break;
-    case 'S':
-      force_cdrom_speed=atoi(optarg);
       break;
     case 'p':
       output_type=0;
@@ -796,10 +790,6 @@ int main(int argc,char *argv[]){
     cdda_verbose_set(d,CDDA_MESSAGE_PRINTIT,CDDA_MESSAGE_PRINTIT);
   else
     cdda_verbose_set(d,CDDA_MESSAGE_PRINTIT,CDDA_MESSAGE_FORGETIT);
-
-  if(force_cdrom_speed!=-1){
-    cdda_speed_set(d,force_cdrom_speed);
-  }
 
   /* possibly force hand on endianness of drive, sector request size */
   if(force_cdrom_endian!=-1){
