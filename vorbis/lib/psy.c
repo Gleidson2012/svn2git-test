@@ -11,7 +11,7 @@
  ********************************************************************
 
  function: psychoacoustics not including preecho
- last mod: $Id: psy.c,v 1.46 2001/06/15 21:15:40 xiphmont Exp $
+ last mod: $Id: psy.c,v 1.48 2001/06/18 22:19:26 xiphmont Exp $
 
  ********************************************************************/
 
@@ -97,7 +97,7 @@ static void setup_curve(float **c,
   int i,j;
   float ath[EHMER_MAX];
   float tempc[P_LEVELS][EHMER_MAX];
-  float *ATH=ATH_Bark_dB_lineconservative; /* just for limiting here */
+  float *ATH=ATH_Bark_dB_lspconservative; /* just for limiting here */
 
   memcpy(c[0]+2,c[4]+2,sizeof(float)*EHMER_MAX);
   memcpy(c[2]+2,c[4]+2,sizeof(float)*EHMER_MAX);
@@ -693,7 +693,7 @@ float _vp_compute_mask(vorbis_look_psy *p,
 		      p->vi->noisewindowhimin,
 		      p->noisemedian,
 		      p->noiseoffset,
-		      p->vi->noisewindowfixed);
+		      (const long *)(p->vi->noisewindowfixed));
     /* suppress any noise curve > specmax+p->vi->noisemaxsupp */
     for(i=0;i<n;i++)
       if(mask[i]>specmax+p->vi->noisemaxsupp)
