@@ -12,7 +12,7 @@
  ********************************************************************
 
  function: libvorbis codec headers
- last mod: $Id: codec.h,v 1.27 2000/08/23 10:27:14 xiphmont Exp $
+ last mod: $Id: codec.h,v 1.27.2.2 2000/08/31 08:59:58 xiphmont Exp $
 
  ********************************************************************/
 
@@ -26,7 +26,6 @@ extern "C"
 
 #define MAX_BARK 27
 
-#include <sys/types.h>
 #include "os_types.h"
 #include "vorbis/codebook.h"
 #include "vorbis/internal.h"
@@ -59,29 +58,29 @@ typedef struct vorbis_info_psy{
   int    smoothp;
 
   int    noisecullp;
-  double noisecull_barkwidth;
+  float noisecull_barkwidth;
 
-  double ath_adjatt;
-  double ath_maxatt;
+  float ath_adjatt;
+  float ath_maxatt;
 
   /*     0  1  2   3   4   5   6   7   8   9  10  11  12  13  14  15   16   */
   /* x: 63 88 125 175 250 350 500 700 1k 1.4k 2k 2.8k 4k 5.6k 8k 11.5k 16k Hz */
   /* y: 0 10 20 30 40 50 60 70 80 90 100 dB */
 
   int tonemaskp;
-  double toneatt[P_BANDS][P_LEVELS];
+  float toneatt[P_BANDS][P_LEVELS];
 
   int peakattp;
-  double peakatt[P_BANDS][P_LEVELS];
+  float peakatt[P_BANDS][P_LEVELS];
 
   int noisemaskp;
-  double noiseatt[P_BANDS][P_LEVELS];
+  float noiseatt[P_BANDS][P_LEVELS];
 
-  double max_curve_dB;
+  float max_curve_dB;
 
   /* decay setup */
-  double attack_coeff;
-  double decay_coeff;
+  float attack_coeff;
+  float decay_coeff;
 } vorbis_info_psy;
 
 /* vorbis_info contains all the setup information specific to the
@@ -146,9 +145,9 @@ typedef struct vorbis_info{
   
   /* for block long/sort tuning; encode only */
   int        envelopesa;
-  double     preecho_thresh;
-  double     preecho_clamp;
-  double     preecho_minenergy;
+  float     preecho_thresh;
+  float     preecho_clamp;
+  float     preecho_minenergy;
 } vorbis_info;
  
 /* ogg_page is used to encapsulate the data in one Ogg bitstream page *****/
@@ -171,7 +170,7 @@ typedef struct {
 
 
   int     *lacing_vals;    /* The values that will go to the segment table */
-  int64_t *pcm_vals;      /* pcm_pos values for headers. Not compact
+  ogg_int64_t *pcm_vals;      /* pcm_pos values for headers. Not compact
 			     this way, but it is simple coupled to the
 			     lacing fifo */
   long    lacing_storage;
@@ -188,12 +187,12 @@ typedef struct {
 			     of a logical bitstream */
   long     serialno;
   int      pageno;
-  int64_t  packetno;      /* sequence number for decode; the framing
+  ogg_int64_t  packetno;      /* sequence number for decode; the framing
                              knows where there's a hole in the data,
                              but we need coupling so that the codec
                              (which is in a seperate abstraction
                              layer) also knows about the gap */
-  int64_t   pcmpos;
+  ogg_int64_t   pcmpos;
 
 } ogg_stream_state;
 
@@ -206,8 +205,8 @@ typedef struct {
   long  b_o_s;
   long  e_o_s;
 
-  int64_t  frameno;
-  int64_t  packetno;       /* sequence number for decode; the framing
+  ogg_int64_t  frameno;
+  ogg_int64_t  packetno;       /* sequence number for decode; the framing
                              knows where there's a hole in the data,
                              but we need coupling so that the codec
                              (which is in a seperate abstraction
@@ -234,8 +233,8 @@ typedef struct vorbis_dsp_state{
   vorbis_info *vi;
   int    modebits;
 
-  double **pcm;
-  double **pcmret;
+  float **pcm;
+  float **pcmret;
   int      pcm_storage;
   int      pcm_current;
   int      pcm_returned;
@@ -248,17 +247,17 @@ typedef struct vorbis_dsp_state{
   long nW;
   long centerW;
 
-  int64_t frameno;
-  int64_t sequence;
+  ogg_int64_t frameno;
+  ogg_int64_t sequence;
 
-  int64_t glue_bits;
-  int64_t time_bits;
-  int64_t floor_bits;
-  int64_t res_bits;
+  ogg_int64_t glue_bits;
+  ogg_int64_t time_bits;
+  ogg_int64_t floor_bits;
+  ogg_int64_t res_bits;
 
   /* local lookup storage */
   void                   *ve; /* envelope lookup */    
-  double                **window[2][2][2]; /* block, leadin, leadout, type */
+  float                **window[2][2][2]; /* block, leadin, leadout, type */
   vorbis_look_transform **transform[2];    /* block, type */
   codebook               *fullbooks;
   /* backend lookups are tied to the mode, not the backend or naked mapping */
@@ -286,7 +285,7 @@ struct alloc_chain{
 
 typedef struct vorbis_block{
   /* necessary stream state for linking to the framing abstraction */
-  double  **pcm;       /* this is a pointer into local storage */ 
+  float  **pcm;       /* this is a pointer into local storage */ 
   oggpack_buffer opb;
   
   long  lW;
@@ -296,8 +295,8 @@ typedef struct vorbis_block{
   int   mode;
 
   int eofflag;
-  int64_t frameno;
-  int64_t sequence;
+  ogg_int64_t frameno;
+  ogg_int64_t sequence;
   vorbis_dsp_state *vd; /* For read-only access of configuration */
 
   /* local storage to avoid remallocing; it's up to the mapping to
@@ -381,7 +380,7 @@ extern int      ogg_page_version(ogg_page *og);
 extern int      ogg_page_continued(ogg_page *og);
 extern int      ogg_page_bos(ogg_page *og);
 extern int      ogg_page_eos(ogg_page *og);
-extern int64_t  ogg_page_frameno(ogg_page *og);
+extern ogg_int64_t  ogg_page_frameno(ogg_page *og);
 extern int      ogg_page_serialno(ogg_page *og);
 extern int      ogg_page_pageno(ogg_page *og);
 
@@ -409,7 +408,7 @@ extern int      vorbis_analysis_headerout(vorbis_dsp_state *v,
 					  ogg_packet *op,
 					  ogg_packet *op_comm,
 					  ogg_packet *op_code);
-extern double **vorbis_analysis_buffer(vorbis_dsp_state *v,int vals);
+extern float  **vorbis_analysis_buffer(vorbis_dsp_state *v,int vals);
 extern int      vorbis_analysis_wrote(vorbis_dsp_state *v,int vals);
 extern int      vorbis_analysis_blockout(vorbis_dsp_state *v,vorbis_block *vb);
 extern int      vorbis_analysis(vorbis_block *vb,ogg_packet *op);
@@ -421,7 +420,7 @@ extern int      vorbis_synthesis_headerin(vorbis_info *vi,vorbis_comment *vc,
 extern int      vorbis_synthesis_init(vorbis_dsp_state *v,vorbis_info *vi);
 extern int      vorbis_synthesis(vorbis_block *vb,ogg_packet *op);
 extern int      vorbis_synthesis_blockin(vorbis_dsp_state *v,vorbis_block *vb);
-extern int      vorbis_synthesis_pcmout(vorbis_dsp_state *v,double ***pcm);
+extern int      vorbis_synthesis_pcmout(vorbis_dsp_state *v,float ***pcm);
 extern int      vorbis_synthesis_read(vorbis_dsp_state *v,int samples);
 
 #ifdef __cplusplus
