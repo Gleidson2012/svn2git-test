@@ -1,17 +1,19 @@
 %define ver	9.8
 %define realver	alpha%{ver}
 
-Summary: A Compact Disc Digital Audio (CDDA) extraction tool (or ripper).
 Name: cdparanoia
 Version: %{realver}
-Release: 8
+Release: 5
 License: GPL
 Group: Applications/Multimedia
 Source: http://www.xiph.org/paranoia/download/%{name}-III-%{realver}.src.tgz 
 Url: http://www.xiph.org/paranoia/index.html
 BuildRoot: %{_tmppath}/cdparanoia-%{version}-root
+Requires: cdparanoia-libs = %{version}-%{release}
+Obsoletes: cdparanoia-III
+Summary: A Compact Disc Digital Audio (CDDA) extraction tool (or ripper).
 
-%description
+%description 
 Cdparanoia (Paranoia III) reads digital audio directly from a CD, then
 writes the data to a file or pipe in WAV, AIFC or raw 16 bit linear
 PCM format.  Cdparanoia doesn't contain any extra features (like the ones
@@ -21,13 +23,23 @@ drives prone to misalignment, frame jitter and loss of streaming during
 atomic reads.  Cdparanoia is also good at reading and repairing data from
 damaged CDs.
 
-%package devel
+%package -n cdparanoia-devel
 Summary: Development tools for libcdda_paranoia (Paranoia III).
 Group: Development/Libraries
+Requires: cdparanoia-libs = %{version}-%{release}
+Obsoletes: cdparanoia-devel
 
-%description devel
+%description -n cdparanoia-devel
 The cdparanoia-devel package contains the static libraries and header
 files needed for developing applications to read CD Digital Audio disks.
+
+%package -n cdparanoia-libs
+Summary: Libraries for libcdda_paranoia (Paranoia III).
+Group: Development/Libraries
+
+%description -n cdparanoia-libs
+The cdparanoia-libs package contains the dynamic libraries needed for
+applications which read CD Digital Audio disks.
 
 %prep
 %setup -q -n %{name}-III-%{realver}
@@ -55,27 +67,55 @@ install -m 0755 interface/libcdda_interface.so.0.%{ver} \
 	$RPM_BUILD_ROOT%{_libdir}
 install -m 0755 interface/libcdda_interface.a $RPM_BUILD_ROOT%{_libdir}
 
-%post -p /sbin/ldconfig
+(	cd $RPM_BUILD_ROOT%{_libdir} ; 
+	ln -s libcdda_paranoia.so.0.%{ver} libcdda_paranoia.so ; 
+	ln -s libcdda_interface.so.0.%{ver} libcdda_interface.so
+)
 
-%postun -p /sbin/ldconfig
+%post -n cdparanoia-libs
+/sbin/ldconfig
+
+%postun -n cdparanoia-libs
+if [ "$1" -ge "1" ]; then
+  /sbin/ldconfig
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%files
+%files -n cdparanoia
 %defattr(-,root,root)
 %doc README GPL FAQ.txt
 %{_bindir}/*
 %{_mandir}/man1/*
-%{_libdir}/libcdda_paranoia.so.*
-%{_libdir}/libcdda_interface.so.*
 
-%files devel
+%files -n cdparanoia-libs
+%defattr(-,root,root)
+%{_libdir}/*.so*
+
+%files -n cdparanoia-devel
 %defattr(-,root,root)
 %{_includedir}/*
 %{_libdir}/*.a
 
 %changelog
+* Sun Nov  4 2001 Peter Jones <pjones@redhat.com> alpha9.8-5
+- make a -libs package which contains the .so files
+- make the cdparanoia dependancy towards that, not -devel
+
+* Thu Aug  2 2001 Peter Jones <pjones@redhat.com>
+- bump the release not to conflict with on in the RH build tree :/
+- reverse devel dependency
+
+* Wed Aug  1 2001 Peter Jones <pjones@redhat.com>
+- fix %post and %postun to only run ldconfig for devel packages
+
+* Wed Jul 18 2001 Crutcher Dunnavant <crutcher@redhat.com>
+- devel now depends on package
+
+* Wed Mar 28 2001 Peter Jones <pjones@redhat.com>
+- 9.8 release.
+
 * Tue Feb 27 2001 Karsten Hopp <karsten@redhat.de>
 - fix spelling error in description
 
