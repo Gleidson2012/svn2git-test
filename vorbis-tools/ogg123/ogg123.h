@@ -28,10 +28,14 @@ typedef struct ogg123_options_s {
   signed short int quiet;     /* Be quiet (no title) */
   double seekpos;             /* Amount to seek by */
   FILE *instream;             /* Stream to read from. */
+  char *default_device;       /* default device for playback */
   devices_t *outdevices;      /* Streams to write to. */
   int buffer_size;            /* Size of the buffer in chunks. */
+  int prebuffer;              /* number of chunks to prebuffer */
   int rate, channels;         /* playback params for opening audio devices */
   int delay;                  /* delay for skip to next song */
+  int nth;                    /* Play every nth chunk */
+  int ntimes;                 /* Play every chunk n times */
 } ogg123_options_t;           /* Changed in 0.6 to be non-static */
 
 /* This goes here because it relies on some of the above. */
@@ -47,5 +51,7 @@ void play_file(ogg123_options_t opt);
 int get_tcp_socket(void); /* Will be going soon. */
 FILE *http_open(char *server, int port, char *path); /* ditto */
 int open_audio_devices(ogg123_options_t *opt, int rate, int channels, buf_t ** buffer);
+void signal_quit (int ignored);
+void ogg123_atexit (void);
 
 #endif /* !defined(__OGG123_H) */

@@ -14,7 +14,7 @@
  *                                                                  *
  ********************************************************************
 
- last mod: $Id: ogg123.c,v 1.36 2001/06/19 17:15:32 kcarnold Exp $
+ last mod: $Id: ogg123.c,v 1.39.2.5 2001/06/24 01:24:56 kcarnold Exp $
 
  ********************************************************************/
 
@@ -69,7 +69,10 @@ struct option long_options[] = {
     {"quiet", no_argument, 0, 'q'},
     {"shuffle", no_argument, 0, 'z'},
     {"buffer", required_argument, 0, 'b'},
+    {"prebuffer", required_argument, 0, 'p'},
     {"delay", required_argument, 0, 'l'},
+    {"nth", required_argument, 0, 'x'},
+    {"ntimes", required_argument, 0, 'y'},
     {0, 0, 0, 0}
 };
 
@@ -110,21 +113,18 @@ int main(int argc, char **argv)
     ao_option_t *temp_options = NULL;
     ao_option_t ** current_options = &temp_options;
     int temp_driver_id = -1;
-	devices_t *current;
+    devices_t *current;
 
-    opt.read_file = NULL;
-    opt.shuffle = 0;
-    opt.verbose = 0;
-    opt.quiet = 0;
-    opt.seekpos = 0;
-    opt.instream = NULL;
-    opt.outdevices = NULL;
-    opt.buffer_size = 0;
+    memset (&opt, 0, sizeof(opt));
     opt.delay = 1;
+    opt.nth = 1;
+    opt.ntimes = 1;
 
+    atexit (ogg123_atexit);
+    signal (SIGINT, signal_quit);
     ao_initialize();
 
-    while (-1 != (ret = getopt_long(argc, argv, "b:d:hl:k:o:qvVz",
+    while (-1 != (ret = getopt_long(argc, argv, "b:d:hl:k:o:p:qvVx:y:z",
 				    long_options, &option_index))) {
 	switch (ret) {
 	case 0:
@@ -160,6 +160,9 @@ int main(int argc, char **argv)
 	case 'h':
 	    usage();
 	    exit(0);
+	case 'p':
+	  opt.prebuffer = atoi (optarg);
+	  break;
 	case 'q':
 	    opt.quiet++;
 	    break;
@@ -169,6 +172,12 @@ int main(int argc, char **argv)
 	case 'V':
 	    fprintf(stderr, "Ogg123 from " PACKAGE " " VERSION "\n");
 	    exit(0);
+	case 'x':
+	  opt.nth = atoi (optarg);
+	  break;
+	case 'y':
+	  opt.ntimes = atoi (optarg);
+	  break;
 	case 'z':
 	    opt.shuffle = 1;
 	    break;
@@ -179,6 +188,9 @@ int main(int argc, char **argv)
 	    exit(1);
 	}
     }
+
+    if (opt.buffer_size > 1 && opt.prebuffer == 0)
+      opt.prebuffer = 1; /* for good measure */
 
     /* Add last device to device list or use the default device */
     if (temp_driver_id < 0) {
@@ -226,8 +238,10 @@ int main(int argc, char **argv)
       opt.outdevices = current;
     }
 
-    if (buffer != NULL)
+    if (buffer != NULL) {
 	    buffer_shutdown(buffer);
+            buffer = NULL;
+    }
     
     ao_shutdown();
 
@@ -255,13 +269,21 @@ void signal_skipfile(int which_signal)
     signal(which_signal,old_sig);
     raise(which_signal);
   }
-
+  else
+    signal (SIGINT, signal_quit);
+  /* should that be unconditional? man pages are not clear on this */
 }
 
 void signal_activate_skipfile(int ignored)
 {
   old_sig = signal(SIGINT,signal_skipfile);
 }
+
+void signal_quit(int ignored)
+{
+  exit(0);
+}
+
 
 
 void play_file(ogg123_options_t opt)
@@ -278,6 +300,7 @@ void play_file(ogg123_options_t opt)
     double t_sec = 0, c_sec = 0, r_sec = 0;
     int is_big_endian = ao_is_big_endian();
     double realseekpos = opt.seekpos;
+    int nthc = 0, ntimesc = 0;
 
     /* Junk left over from the failed info struct */
     double u_time, u_pos;
@@ -387,6 +410,7 @@ void play_file(ogg123_options_t opt)
 		exit(1);
 
 	if (opt.quiet < 1) {
+	    if (eos && opt.verbose) fprintf (stderr, "\r                                                                          \r\n");
 	    for (i = 0; i < vc->comments; i++) {
 		char *cc = vc->user_comments[i];	/* current comment */
 		int i;
@@ -405,10 +429,11 @@ void play_file(ogg123_options_t opt)
 
 	    fprintf(stderr, "\nBitstream is %d channel, %ldHz\n",
 		    vi->channels, vi->rate);
-	    fprintf(stderr, "Encoded by: %s\n\n", vc->vendor);
+	    if (opt.verbose > 1)
+	      fprintf(stderr, "Encoded by: %s\n\n", vc->vendor);
 	}
 
-	if (opt.verbose > 0) {
+	if (opt.verbose > 0 && ov_seekable(&vf)) {
 	    /* Seconds with double precision */
 	    u_time = ov_time_total(&vf, -1);
 	    t_min = (long) u_time / (long) 60;
@@ -432,6 +457,9 @@ void play_file(ogg123_options_t opt)
 	      skipfile_requested = 0;
 	      signal(SIGALRM,signal_activate_skipfile);
 	      alarm(opt.delay);
+	      if (buffer) {
+		buffer_flush (buffer);
+	      }
 	      break;
   	    }
 
@@ -455,36 +483,67 @@ void play_file(ogg123_options_t opt)
 		if (old_section != current_section && old_section != -1)
 		    eos = 1;
 
-		if (buffer)
-		  {
-		    chunk_t chunk;
-		    chunk.len = ret;
-		    memcpy (chunk.data, convbuffer, ret);
-		    
-		    submit_chunk (buffer, chunk);
+		do {
+		  if (nthc-- == 0) {
+		    if (buffer)
+		      {
+			chunk_t chunk;
+			chunk.len = ret;
+			memcpy (chunk.data, convbuffer, ret);
+			
+			submit_chunk (buffer, chunk);
+		      }
+		    else
+		      devices_write(convbuffer, ret, opt.outdevices);
+		    nthc = opt.nth - 1;
 		  }
-		else
-		  devices_write(convbuffer, ret, opt.outdevices);
-		
+		} while (++ntimesc < opt.ntimes);
+		ntimesc = 0;
+
 		if (opt.verbose > 0) {
-		    u_pos = ov_time_tell(&vf);
-		    c_min = (long) u_pos / (long) 60;
-		    c_sec = u_pos - 60 * c_min;
-		    r_min = (long) (u_time - u_pos) / (long) 60;
-		    r_sec = (u_time - u_pos) - 60 * r_min;
-		    fprintf(stderr,
-			    "\rTime: %02li:%05.2f [%02li:%05.2f] of %02li:%05.2f, Bitrate: %.1f   \r",
-			    c_min, c_sec, r_min, r_sec, t_min, t_sec,
-			    (float) ov_bitrate_instant(&vf) / 1000.0F);
+		    if (ov_seekable (&vf)) {
+		      u_pos = ov_time_tell(&vf);
+		      c_min = (long) u_pos / (long) 60;
+		      c_sec = u_pos - 60 * c_min;
+		      r_min = (long) (u_time - u_pos) / (long) 60;
+		      r_sec = (u_time - u_pos) - 60 * r_min;
+		      if (buffer)
+			fprintf(stderr,
+				"\rTime: %02li:%05.2f [%02li:%05.2f] of %02li:%05.2f, Bitrate: %.1f, Buffer fill: %3.0f%%   \r",
+				c_min, c_sec, r_min, r_sec, t_min, t_sec,
+				(double) ov_bitrate_instant(&vf) / 1000.0F,
+				(double) buffer_full(buffer) / (double) buffer->size * 100.0F);
+		      else
+			fprintf(stderr,
+				"\rTime: %02li:%05.2f [%02li:%05.2f] of %02li:%05.2f, Bitrate: %.1f   \r",
+				c_min, c_sec, r_min, r_sec, t_min, t_sec,
+				(double) ov_bitrate_instant(&vf) / 1000.0F);
+		    } else {
+		      /* working around a bug in vorbisfile */
+		      u_pos = (double) ov_pcm_tell(&vf) / (double) vi->rate;
+		      c_min = (long) u_pos / (long) 60;
+		      c_sec = u_pos - 60 * c_min;
+		      if (buffer)
+			fprintf(stderr,
+				"\rTime: %02li:%05.2f, Bitrate: %.1f, Buffer fill: %3.0f%%   \r",
+				c_min, c_sec,
+				(float) ov_bitrate_instant (&vf) / 1000.0F,
+				(double) buffer_full(buffer) / (double) buffer->size * 100.0F);
+		      else
+			fprintf(stderr,
+				"\rTime: %02li:%05.2f, Bitrate: %.1f   \r",
+				c_min, c_sec,
+				(float) ov_bitrate_instant (&vf) / 1000.0F);
+		    }
 		}
 	    }
 	}
     }
-
+    
     alarm(0);
     signal(SIGALRM,SIG_DFL);
     signal(SIGINT,old_sig);
-
+    
     ov_clear(&vf);
 
     if (opt.quiet < 1)
@@ -568,7 +627,14 @@ int open_audio_devices(ogg123_options_t *opt, int rate, int channels, buf_t **bu
   }
   
   if (opt->buffer_size)
-    *buffer = fork_writer (opt->buffer_size, opt->outdevices);
+    *buffer = fork_writer (opt->buffer_size, opt->outdevices, opt->prebuffer);
   
     return 0;
+}
+
+void ogg123_atexit (void)
+{
+  if (buffer)
+    buffer_cleanup (buffer);
+  buffer = NULL;
 }
