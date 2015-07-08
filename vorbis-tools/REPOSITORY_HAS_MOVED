@@ -1,0 +1,10 @@
+== THIS REPOSITORY IS NO LONGER ACTIVE ==
+
+Development work has moved to https://git.xiph.org/vorbis-tools.git
+
+Please checkout that repository for the latest changes:
+
+  git clone https://git.xiph.org/vorbis-tools.git
+
+This version of the code remains for historical reference.
+It is up to date as far as January 2015.
